@@ -1,0 +1,103 @@
+{
+    "aws_secrets_manager_setup": {
+      "secret_name": "mercadolivre-credentials",
+      "secret_structure": {
+        "client_id": "YOUR_ML_CLIENT_ID",
+        "client_secret": "YOUR_ML_CLIENT_SECRET", 
+        "refresh_token": "YOUR_ML_REFRESH_TOKEN",
+        "access_token": "YOUR_ML_ACCESS_TOKEN",
+        "expires_at": 1234567890000
+      },
+      "aws_cli_commands": [
+        "# Criar o secret no AWS Secrets Manager",
+        "aws secretsmanager create-secret \\",
+        "    --name mercadolivre-credentials \\",
+        "    --description \"Credenciais do Mercado Livre\" \\",
+        "    --secret-string '{\"client_id\":\"YOUR_CLIENT_ID\",\"client_secret\":\"YOUR_CLIENT_SECRET\",\"refresh_token\":\"YOUR_REFRESH_TOKEN\"}'",
+        "",
+        "# Ou atualizar um secret existente",
+        "aws secretsmanager update-secret \\",
+        "    --secret-id mercadolivre-credentials \\",
+        "    --secret-string '{\"client_id\":\"YOUR_CLIENT_ID\",\"client_secret\":\"YOUR_CLIENT_SECRET\",\"refresh_token\":\"YOUR_REFRESH_TOKEN\"}'"
+      ]
+    },
+    "iam_policy_for_lambda": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:PutSecretValue"
+          ],
+          "Resource": "arn:aws:secretsmanager:*:*:secret:mercadolivre-credentials*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "Resource": "arn:aws:logs:*:*:*"
+        }
+      ]
+    },
+    "lambda_environment_variables": {
+      "ML_SECRET_NAME": "mercadolivre-credentials",
+      "AWS_REGION": "us-east-1"
+    },
+    "serverless_framework_example": {
+      "service": "mercadolivre-integration",
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs18.x",
+        "region": "us-east-1",
+        "environment": {
+          "ML_SECRET_NAME": "mercadolivre-credentials"
+        },
+        "iamRoleStatements": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:PutSecretValue"
+            ],
+            "Resource": "arn:aws:secretsmanager:*:*:secret:mercadolivre-credentials*"
+          }
+        ]
+      },
+      "functions": {
+        "api": {
+          "handler": "dist/lambda-handler.handler",
+          "events": [
+            {
+              "http": {
+                "path": "{proxy+}",
+                "method": "ANY"
+              }
+            }
+          ],
+          "timeout": 30
+        },
+        "syncProducts": {
+          "handler": "dist/lambda-handler.syncProductsHandler",
+          "events": [
+            {
+              "schedule": "rate(1 hour)"
+            }
+          ],
+          "timeout": 300
+        },
+        "processOrders": {
+          "handler": "dist/lambda-handler.processOrdersHandler",
+          "events": [
+            {
+              "schedule": "rate(15 minutes)"
+            }
+          ],
+          "timeout": 300
+        }
+      }
+    }
+  }
